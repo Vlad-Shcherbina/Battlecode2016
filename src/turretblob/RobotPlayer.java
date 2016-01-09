@@ -52,11 +52,17 @@ public class RobotPlayer {
             int myAttackRange = rc.getType().attackRadiusSquared;
             RobotInfo[] enemiesWithinRange = rc.senseNearbyRobots(myAttackRange, rc.getTeam().opponent());
             RobotInfo[] zombiesWithinRange = rc.senseNearbyRobots(myAttackRange, Team.ZOMBIE);
+
+            RobotInfo[] enemies = concatArrays(enemiesWithinRange, zombiesWithinRange);
             RobotInfo target = null;
-            if (enemiesWithinRange.length > 0)
-                target = enemiesWithinRange[0];
-            else if (zombiesWithinRange.length > 0)
-                target = zombiesWithinRange[0];
+
+            for (RobotInfo enemy : enemies) {
+                if (rc.getLocation().distanceSquaredTo(enemy.location) >=
+                    GameConstants.TURRET_MINIMUM_RANGE) {
+                    target = enemy;
+                    break;
+                }
+            }
             if (target != null) {
                 rc.attackLocation(target.location);
                 continue;
@@ -64,6 +70,14 @@ public class RobotPlayer {
 
             Clock.yield();
         }
+    }
+
+    static RobotInfo[] concatArrays(RobotInfo a[], RobotInfo b[]) {
+        int length = a.length + b.length;
+        RobotInfo[] result = new RobotInfo[length];
+        System.arraycopy(a, 0, result, 0, a.length);
+        System.arraycopy(b, 0, result, a.length, b.length);
+        return result;
     }
 
     static boolean tryBuild(RobotType t) throws Exception {
