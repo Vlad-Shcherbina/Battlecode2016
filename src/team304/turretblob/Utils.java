@@ -1,4 +1,4 @@
-package turretblob;
+package team304.turretblob;
 
 import battlecode.common.MapLocation;
 import battlecode.common.RobotInfo;
