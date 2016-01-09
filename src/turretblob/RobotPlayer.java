@@ -27,33 +27,17 @@ public class RobotPlayer {
         }
     }
 
-    static int dist(MapLocation a, RobotInfo b) {
-        return a.distanceSquaredTo(b.location);
-    }
-
-    static int dist(RobotInfo a, RobotInfo b) {
-        return a.location.distanceSquaredTo(b.location);
-    }
-
-    static int distToNearest(MapLocation loc, RobotInfo[] others) {
-        int result = 100000;
-        for (RobotInfo other : others) {
-            result = Math.min(result, dist(loc, other));
-        }
-        return result;
-    }
-
     static void archonRun() throws Exception {
         while (true) {
             if (rand.nextInt(5) == 0 && tryBuild(RobotType.TURRET))
                 continue;
 
             RobotInfo[] allies = rc.senseNearbyRobots(50, rc.getTeam());
-            int oldDist = distToNearest(rc.getLocation(), allies);
+            int oldDist = Utils.distToNearest(rc.getLocation(), allies);
 
             Direction dirToMove = directions[rand.nextInt(8)];
             if (rc.isCoreReady() && rc.canMove(dirToMove)) {
-                int newDist = distToNearest(rc.getLocation().add(dirToMove), allies);
+                int newDist = Utils.distToNearest(rc.getLocation().add(dirToMove), allies);
 
                 if (newDist < 10 || newDist <= oldDist) {
                     rc.move(dirToMove);
@@ -76,7 +60,7 @@ public class RobotPlayer {
             RobotInfo[] enemiesWithinRange = rc.senseNearbyRobots(myAttackRange, rc.getTeam().opponent());
             RobotInfo[] zombiesWithinRange = rc.senseNearbyRobots(myAttackRange, Team.ZOMBIE);
 
-            RobotInfo[] enemies = concatArrays(enemiesWithinRange, zombiesWithinRange);
+            RobotInfo[] enemies = Utils.concatArrays(enemiesWithinRange, zombiesWithinRange);
             RobotInfo target = null;
 
             for (RobotInfo enemy : enemies) {
@@ -93,14 +77,6 @@ public class RobotPlayer {
 
             Clock.yield();
         }
-    }
-
-    static RobotInfo[] concatArrays(RobotInfo a[], RobotInfo b[]) {
-        int length = a.length + b.length;
-        RobotInfo[] result = new RobotInfo[length];
-        System.arraycopy(a, 0, result, 0, a.length);
-        System.arraycopy(b, 0, result, a.length, b.length);
-        return result;
     }
 
     static boolean tryBuild(RobotType type) throws Exception {
