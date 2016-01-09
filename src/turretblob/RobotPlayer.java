@@ -55,12 +55,26 @@ public class RobotPlayer {
     }
 
     static void archonRun() throws Exception {
+        boolean repairedThisTurn = false;
         while (true) {
             if (rand.nextInt(5) == 0 && tryBuild(RobotType.TURRET))
                 continue;
 
             RobotInfo[] allies = rc.senseNearbyRobots(50, rc.getTeam());
             RobotInfo[] enemies = senseEnemies(50);
+
+            if (!repairedThisTurn) {
+                for (RobotInfo ally : allies) {
+                    if (ally.health >= ally.maxHealth || ally.type == RobotType.ARCHON)
+                        continue;
+                    int d = Utils.dist(rc.getLocation(), ally);
+                    if (d <= rc.getType().attackRadiusSquared) {
+                        repairedThisTurn = true;
+                        rc.repair(ally.location);
+                        break;
+                    }
+                }
+            }
 
             int oldDist = Utils.distToNearest(rc.getLocation(), allies);
 
@@ -82,6 +96,7 @@ public class RobotPlayer {
             }
 
             Clock.yield();
+            repairedThisTurn = false;
         }
     }
 
