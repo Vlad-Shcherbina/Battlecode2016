@@ -27,15 +27,38 @@ public class RobotPlayer {
         }
     }
 
+    static int dist(MapLocation a, RobotInfo b) {
+        return a.distanceSquaredTo(b.location);
+    }
+
+    static int dist(RobotInfo a, RobotInfo b) {
+        return a.location.distanceSquaredTo(b.location);
+    }
+
+    static int distToNearest(MapLocation loc, RobotInfo[] others) {
+        int result = 100000;
+        for (RobotInfo other : others) {
+            result = Math.min(result, dist(loc, other));
+        }
+        return result;
+    }
+
     static void archonRun() throws Exception {
-        while(true) {
+        while (true) {
             if (rand.nextInt(5) == 0 && tryBuild(RobotType.TURRET))
                 continue;
 
+            RobotInfo[] allies = rc.senseNearbyRobots(50, rc.getTeam());
+            int oldDist = distToNearest(rc.getLocation(), allies);
+
             Direction dirToMove = directions[rand.nextInt(8)];
             if (rc.isCoreReady() && rc.canMove(dirToMove)) {
-                rc.move(dirToMove);
-                continue;
+                int newDist = distToNearest(rc.getLocation().add(dirToMove), allies);
+
+                if (newDist < 10 || newDist <= oldDist) {
+                    rc.move(dirToMove);
+                    continue;
+                }
             }
 
             Clock.yield();
@@ -80,20 +103,21 @@ public class RobotPlayer {
         return result;
     }
 
-    static boolean tryBuild(RobotType t) throws Exception {
+    static boolean tryBuild(RobotType type) throws Exception {
         if (!rc.isCoreReady())
             return false;
-        if (!rc.hasBuildRequirements(t))
+        if (!rc.hasBuildRequirements(type))
             return false;
 
-        Direction dirToBuild = directions[rand.nextInt(8)];
+        Direction dir = directions[rand.nextInt(8)];
         for (int i = 0; i < 8; i++) {
-            // If possible, build in this direction
-            if (rc.canBuild(dirToBuild, t)) {
-                rc.build(dirToBuild, t);
+            MapLocation pos = rc.getLocation().add(dir);
+            if (rc.canBuild(dir, type) &&
+                rc.senseRubble(pos) < GameConstants.RUBBLE_SLOW_THRESH) {
+                rc.build(dir, type);
                 return true;
             } else {
-                dirToBuild = dirToBuild.rotateLeft();
+                dir = dir.rotateLeft();
             }
         }
         return false;
