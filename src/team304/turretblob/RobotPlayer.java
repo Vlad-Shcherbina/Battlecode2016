@@ -10,6 +10,29 @@ public class RobotPlayer {
     static Random rand;
     static RobotController rc;
 
+    static class Target {
+        MapLocation location;
+        RobotType type;
+        double health;
+
+        Target() {}
+        Target(RobotInfo ri) {
+            location = ri.location;
+            type = ri.type;
+            health = ri.health;
+        }
+
+        double priority() {
+            if (type == null)
+                return 0.01;
+            if (type == RobotType.SCOUT)
+                return 0.1;
+            if (type.attackDelay <= 0)
+                return 0.005;
+            return type.attackPower / (type.attackDelay * Math.max(health, 1.0));
+        }
+    }
+
     static class Comm {
         static final int TARGET = 0;
 
@@ -37,19 +60,23 @@ public class RobotPlayer {
                             MapLocation pos = signal.getLocation();
                             int dx = data[1] % MD2 - MAX_DELTA;
                             int dy = data[1] / MD2 - MAX_DELTA;
-                            targets.add(pos.add(dx, dy));
+                            Target t = new Target();
+                            t.location = pos.add(dx, dy);
+                            targets.add(t);
                         }
                     }
                 } else {
                     // TODO: take unit type and uncertainty into account
-                    targets.add(signal.getLocation());
+                    Target t = new Target();
+                    t.location = signal.getLocation();
+                    targets.add(t);
                 }
             }
         }
 
-        static ArrayList<MapLocation> targets = new ArrayList();
+        static ArrayList<Target> targets = new ArrayList();
 
-        static ArrayList<MapLocation> getTargets() throws Exception {
+        static ArrayList<Target> getTargets() throws Exception {
             return targets;
         }
     }
@@ -208,26 +235,31 @@ public class RobotPlayer {
             if (!rc.isWeaponReady())
                 continue;
 
-            MapLocation target = null;
+            double bestPriority = -1;
+            Target bestTarget = null;
             for (RobotInfo enemy : enemies) {
                 if (rc.getLocation().distanceSquaredTo(enemy.location) >=
                     GameConstants.TURRET_MINIMUM_RANGE) {
-                    target = enemy.location;
-                    break;
+                    Target t = new Target(enemy);
+                    if (t.priority() > bestPriority) {
+                        bestPriority = t.priority();
+                        bestTarget = t;
+                    }
                 }
             }
-            for (MapLocation t : Comm.getTargets()) {
-                if (target != null)
-                    continue;
-                int d = rc.getLocation().distanceSquaredTo(t);
+            for (Target t : Comm.getTargets()) {
+                int d = rc.getLocation().distanceSquaredTo(t.location);
                 if (d >= GameConstants.TURRET_MINIMUM_RANGE &&
                     d <= myAttackRange) {
-                    target = t;
+                    if (t.priority() > bestPriority) {
+                        bestPriority = t.priority();
+                        bestTarget = t;
+                    }
                 }
             }
 
-            if (target != null) {
-                rc.attackLocation(target);
+            if (bestTarget != null) {
+                rc.attackLocation(bestTarget.location);
             }
         }
     }
