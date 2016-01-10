@@ -106,7 +106,9 @@ public class RobotPlayer {
     static void archonRun() throws Exception {
         System.out.println(rc.getLocation().x + " " + rc.getLocation().y);
         while (true) {
-            if (rand.nextInt(15) == 0 && tryBuild(RobotType.TURRET)) {
+            if (rand.nextInt(10) == 0 &&
+                (allies.length > 0 || enemies.length == 0 || rand.nextInt(8) == 0) &&
+                tryBuild(RobotType.TURRET)) {
                 yield();
                 continue;
             }
@@ -114,20 +116,56 @@ public class RobotPlayer {
             doRepairs();
             doSpotting();
 
-            int oldDist = Utils.distToNearest(rc.getLocation(), allies);
-            Direction dir = Utils.DIRECTIONS[rand.nextInt(8)];
-            if (rc.isCoreReady() && rc.canMove(dir)) {
-                int newDist = Utils.distToNearest(rc.getLocation().add(dir), allies);
+            if (rc.isCoreReady()) {
+                double baseScore = archonPositionScore(rc.getLocation());
+                double bestScore = 0;
+                Direction bestDir = null;
 
-                if (newDist < 10 || newDist <= oldDist) {
-                    System.out.println("before: " + rc.getLocation());
-                    rc.move(dir);
-                    System.out.println("after: " + rc.getLocation());
+                for (Direction dir : Utils.DIRECTIONS) {
+                    if (!rc.canMove(dir))
+                        continue;
+                    MapLocation newLoc = rc.getLocation().add(dir);
+
+                    int newDist = Utils.distToNearest(newLoc, allies);
+                    double score = archonPositionScore(newLoc) - baseScore;
+                    score += (rand.nextInt(10) - 5) * 0.001;
+                    if (dir.isDiagonal())
+                        score /= 1.4;
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestDir = dir;
+                    }
+                }
+                if (bestDir != null) {
+                    rc.move(bestDir);
                 }
             }
 
             yield();
         }
+    }
+
+    static double archonPositionScore(MapLocation loc) throws Exception {
+        double result = -vulnerabilityScore(loc);
+        result -= Math.max(8, Utils.distToNearest(loc, allies)) * 10;
+        return result;
+    }
+
+    static double vulnerabilityScore(MapLocation loc) throws Exception {
+        double result = 0;
+        for (RobotInfo enemy : enemies) {
+            int d2 = Utils.dist(loc, enemy);
+            // TODO: take into account turret min range
+            RobotType type = enemy.type;
+            if (d2 > type.attackRadiusSquared)
+                continue;
+            if (type.attackDelay <= 0)
+                continue;
+            // TODO: take into account viper effect when not infected
+            result += (1 - 0.005 * d2) * type.attackPower / type.attackDelay;
+        }
+        return result;
     }
 
     static void doRepairs() throws Exception {
